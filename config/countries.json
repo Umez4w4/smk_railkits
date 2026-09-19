@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "default_country": "jp",
+  "countries": [
+    {
+      "code": "jp",
+      "label": "日本 / Japan",
+      "name_en": "Japan",
+      "name_local": "日本",
+      "released": true,
+      "data_path": "data/jp",
+      "data_version": "f881cf726277"
+    }
+  ]
+}
