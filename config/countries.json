@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "default_country": "jp",
   "countries": [
     {
@@ -9,7 +9,20 @@
       "name_local": "日本",
       "released": true,
       "data_path": "data/jp",
-      "data_version": "f881cf726277"
+      "data_version": "f881cf726277",
+      "app_type": "shared_schema",
+      "app_path": "index.html"
+    },
+    {
+      "code": "nl",
+      "label": "Nederland / Netherlands",
+      "name_en": "Netherlands",
+      "name_local": "Nederland",
+      "released": true,
+      "app_type": "standalone",
+      "app_path": "countries/nl/index.html",
+      "asset_version": "1801886afa99"
     }
-  ]
+  ],
+  "updated_utc": "2026-09-19T23:10:51.187704+00:00"
 }
