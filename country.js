@@ -1,0 +1,109 @@
+(() => {
+  "use strict";
+
+  let bootstrapPromise = null;
+
+  function requestedCode() {
+    const params = new URLSearchParams(window.location.search);
+
+    return (
+      params.get("country") ||
+      localStorage.getItem("rail_country") ||
+      ""
+    ).trim().toLowerCase();
+  }
+
+  function buildSelector(released, current) {
+    const host = document.getElementById("countrySwitchHost");
+    if (!host) return;
+
+    if (released.length <= 1) {
+      host.hidden = true;
+      return;
+    }
+
+    const select = document.createElement("select");
+    select.id = "countrySwitch";
+    select.setAttribute("aria-label", "Country / 国");
+
+    for (const country of released) {
+      const option = document.createElement("option");
+      option.value = country.code;
+      option.textContent =
+        country.label || country.name_en || country.code;
+      option.selected = country.code === current.code;
+      select.appendChild(option);
+    }
+
+    select.addEventListener("change", () => {
+      const next = select.value;
+      localStorage.setItem("rail_country", next);
+
+      const url = new URL(window.location.href);
+      url.searchParams.set("country", next);
+      window.location.href = url.toString();
+    });
+
+    host.replaceChildren(select);
+    host.hidden = false;
+  }
+
+  async function bootstrapCountry() {
+    if (bootstrapPromise) return bootstrapPromise;
+
+    bootstrapPromise = (async () => {
+      const response = await fetch(
+        "config/countries.json",
+        {cache: "no-store"}
+      );
+
+      if (!response.ok) {
+        throw new Error(`countries.json ${response.status}`);
+      }
+
+      const registry = await response.json();
+
+      const released = (registry.countries || []).filter(
+        c => c && c.released === true
+      );
+
+      if (!released.length) {
+        throw new Error("No released countries in countries.json");
+      }
+
+      const requested = requestedCode();
+
+      let current = released.find(
+        c => String(c.code).toLowerCase() === requested
+      );
+
+      if (!current) {
+        current = released.find(
+          c => c.code === registry.default_country
+        ) || released[0];
+      }
+
+      localStorage.setItem("rail_country", current.code);
+
+      window.RAIL_COUNTRY = current.code;
+      window.RAIL_DATA_BASE =
+        current.data_path || `data/${current.code}`;
+      window.RAIL_COUNTRY_INFO = current;
+      window.RAIL_COUNTRIES = released;
+      window.RAIL_DATA_VERSION = current.data_version || "1";
+      window.RAIL_dataURL = function(name) {
+        const base = String(window.RAIL_DATA_BASE || "").replace(/\/$/, "");
+        const version = encodeURIComponent(window.RAIL_DATA_VERSION);
+        return `${base}/${name}?v=${version}`;
+      };
+
+      buildSelector(released, current);
+
+      return current;
+    })();
+
+    return bootstrapPromise;
+  }
+
+  window.RAIL_bootstrapCountry = bootstrapCountry;
+})();

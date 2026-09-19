@@ -1,0 +1,27 @@
+.country-switch-host[hidden]{
+  display:none !important;
+}
+
+.country-switch-host{
+  display:flex;
+  align-items:center;
+  flex:0 0 auto;
+}
+
+.country-switch-host select{
+  max-width:190px;
+  height:30px;
+  padding:4px 28px 4px 8px;
+  border:1px solid rgba(255,255,255,.38);
+  border-radius:7px;
+  background:#fff;
+  color:#17212b;
+  font:inherit;
+  font-size:11px;
+}
+
+@media(max-width:760px){
+  .country-switch-host select{
+    max-width:140px;
+  }
+}

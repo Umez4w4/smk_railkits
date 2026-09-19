@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="駅間ごとに記録する、日本の鉄道乗りつぶしローカルマップ。">
+  <meta name="rail-frontend-version" content="2026-09-19-v42-compact-colored-progress">
+  <title>Sing Man Goon Railway Toolkit</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b2440'/%3E%3Cpath d='M10 4v24M22 4v24M10 9h12M10 16h12M10 23h12' stroke='%2329d6bf' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="vendor/leaflet.css"><link rel="stylesheet" href="style.css?v=20260918v19">
+  <script defer src="vendor/leaflet.js"></script><script defer src="core.js?v=20260918v19"></script><script defer src="app.js?v=20260919v42"></script><script defer src="i18n.js?v=20260918v20_1"></script>
+</head>
+<body>
+<header><div class="brand"><span class="mark" aria-hidden="true">▥</span><div><strong>Rail Log</strong><span>乗りつぶしマップ</span></div></div><div class="headline"><strong id="overall">—</strong><span id="overallDistance">データを読み込み中</span></div><div class="lang-switch" id="languageSwitch" aria-label="Language / 言語"><button type="button" data-lang="ja">日本語</button><button type="button" data-lang="zh-CN">中文</button></div><span class="local">LOCAL</span></header>
+<main>
+  <aside aria-label="乗車記録">
+    <section><div class="section-title"><span>01</span><h1>路線を選ぶ</h1></div>
+      <label for="search">路線・駅を検索</label><input id="search" type="search" placeholder="山手線、新宿、東海道…" autocomplete="off">
+      <div class="two"><div><label for="pref">都道府県</label><select id="pref"><option value="">すべて</option></select></div><div><label for="railGroup">会社区分</label><select id="railGroup"><option value="">JR線 + 私鉄線</option><option value="jr">JR線</option><option value="non_jr">私鉄線</option></select></div></div>
+      <label for="operator">鉄道会社 <span class="hint">距離の長い順</span></label><select id="operator"><option value="">すべて</option></select>
+      <label for="kind">路線の表示</label><select id="kind"><option value="">正式路線 + 照合済み運行系統</option><option value="formal">正式路線（N02）</option><option value="service">運行系統（Ekidata）</option></select>
+      <label for="line">路線 <span id="lineCount"></span></label><select id="line"></select><p class="muted" id="lineInfo"></p><button id="manualComplete" class="secondary wide" disabled>この路線を100%にする</button>
+    </section>
+    <section><div class="section-title"><span>02</span><h2>乗った区間</h2></div>
+      <div class="two"><div><label for="from">乗車駅</label><select id="from"></select></div><div><label for="to">降車駅</label><select id="to"></select></div></div>
+      <label for="via">経由駅（任意）</label><select id="via"><option value="">指定なし</option></select>
+      <button id="preview" class="secondary wide">経路を表示</button>
+      <label for="route">経路を確認</label><select id="route" disabled></select><p id="routeInfo" class="muted">駅を選ぶと、地図で経路を確認できます。</p>
+      <details id="stops"><summary>経由する駅</summary><p id="stopNames"></p></details>
+      <label for="date">乗車日（任意）</label><input id="date" type="date">
+      <label for="note">メモ（任意）</label><input id="note" maxlength="2000" placeholder="旅行名・列車名など">
+      <button id="save" class="primary wide" disabled>乗車済みとして記録</button>
+      <p id="message" role="status" aria-live="polite"></p>
+    </section>
+  </aside>
+  <div class="workspace">
+    <div id="banner" hidden></div>
+    <div class="map-wrap"><div id="map" aria-label="鉄道地図"></div>
+      <div id="mapSelectionInfo" class="map-selection-info">路線をクリックして選択</div>
+      
+<div class="export-profile-userbox" id="exportUserBox">
+  <label for="exportUserName" id="exportUserNameLabel">ユーザー名</label>
+  <input
+    id="exportUserName"
+    type="text"
+    maxlength="40"
+    value="username"
+    placeholder="username"
+    autocomplete="off"
+  >
+</div>
+
+<div class="export-profile-progressbox" id="exportProgressBox">
+  <label for="exportProgressMode" id="exportProgressLabel">PNGに表示する進捗</label>
+  <select id="exportProgressMode">
+    <option value="overall">総合達成率</option>
+    <option value="jr6">JR線：旅客6社別</option>
+    <option value="jr_private">JR線 / 私鉄線</option>
+  </select>
+</div>
+
+<div class="map-controls"><button id="mapSave" class="map-save" disabled>この区間を記録</button><button id="mapExport">地図を書き出す</button><button id="fit">選択路線へ</button><label><input type="checkbox" id="basemap" checked> OSM背景</label></div>
+      <div class="legend"><span><i class="unridden"></i>未乗車</span><span><i class="ridden"></i>乗車済み</span><span><i class="preview"></i>確認中</span><span><i class="station"></i>駅</span><span><i class="station selected"></i>乗車駅</span><span><i class="station destination"></i>降車駅</span><small>色 = 鉄道会社 / 太さ = 状態</small></div>
+    </div>
+    <section class="statistics">
+      <div class="stats-heading"><h2>乗りつぶし状況</h2><div class="stats-controls"><select id="statsView" aria-label="集計表示"><option value="prefecture_all">都道府県別（全線）</option><option value="jr6">JR線：旅客6社別</option><option value="private_operators">私鉄線：事業者別</option><option value="jr_lines">JR線：路線別</option><option value="private_lines">私鉄線：路線別</option><option value="jr_private">JR線 / 私鉄線</option></select></div></div>
+      <p class="muted">区分は乗りつぶしオンラインを参考に、JR旅客6社をJR線、それ以外の旅客鉄道・軌道事業者を私鉄線として扱います。別線・短絡線は現在の出力データに独立区分がないため別集計していません。</p>
+      <div class="table-scroll"><table class="stats-table"><colgroup><col class="col-name"><col class="col-distance"><col class="col-rate"></colgroup><thead><tr><th scope="col">名称</th><th scope="col">乗車 / 全体 km</th><th scope="col">達成率</th></tr></thead><tbody id="statsRows"></tbody></table></div>
+    </section>
+    <section class="history"><div class="stats-heading"><h2>乗車履歴 <span id="tripCount"></span></h2><div class="actions"><button id="selectAllRecords">全選択</button><button id="deleteSelected" class="danger">選択した記録を削除</button><button id="undo">直前の記録を削除</button><button id="export">バックアップ</button><button id="import">読み込み</button><input hidden id="importFile" type="file" accept=".json,application/json"></div></div><div id="history"></div><p class="muted">チェックを付けた記録はまとめて削除できます。バックアップは現在の乗車履歴一式を保存し、「読み込み」でその履歴を復元します。</p></section>
+    <details class="data-info"><summary>データ範囲・精度・出典</summary><div id="dataInfo"></div><p><a href="https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N02-2025.html" target="_blank" rel="noopener">国土数値情報（鉄道）</a>・<a href="https://nlftp.mlit.go.jp/ksj/" target="_blank" rel="noopener">国土数値情報（行政区域）</a>を加工。<a href="https://ekidata.jp/" target="_blank" rel="noopener">駅データ.jp</a>で駅・接続関係を補助照合。</p><p>背景地図 © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>。路線名・会社別で管理するため、別の正式路線が同じ線路を使う場合は別計上となることがあります。営業キロではありません。</p></details>
+  </div>
+</main>
+<noscript>このツールにはJavaScriptが必要です。</noscript>
+</body></html>
