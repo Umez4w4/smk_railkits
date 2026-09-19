@@ -1282,13 +1282,12 @@ function bind(){
   els.statsView.addEventListener('change',renderStats);els.exportUserName?.addEventListener('change',saveExportProfile);els.exportUserName?.addEventListener('blur',saveExportProfile);els.exportProgressMode?.addEventListener('change',saveExportProfile);const exportLangObserver=new MutationObserver(()=>refreshExportProfileLanguage());exportLangObserver.observe(document.documentElement,{attributes:true,attributeFilter:['lang']});els.history.addEventListener('change',ev=>{const x=ev.target?.closest?.('.history-date-input');if(x)updateRecordDate(x.dataset.tripId,x.value)});els.selectAllRecords.addEventListener('click',toggleSelectAll);els.deleteSelected.addEventListener('click',batchDelete);els.undo.addEventListener('click',undo);els.export.addEventListener('click',exportBackup);els.import.addEventListener('click',()=>els.importFile.click());els.importFile.addEventListener('change',()=>{if(els.importFile.files[0])importBackup(els.importFile.files[0]);els.importFile.value=''})
 }
 async function load(){
-  await window.RAIL_bootstrapCountry();
 
   try{
     // Only the model and processed geometry block application startup.
     const[nr,gr]=await Promise.all([
-      fetch(window.RAIL_dataURL('network.json')),
-      fetch(window.RAIL_dataURL('geometry.geojson'))
+      fetch('./data/jp/network.json'),
+      fetch('./data/jp/geometry.geojson')
     ]);
 
     if(!nr.ok||!gr.ok){
@@ -1329,7 +1328,7 @@ async function load(){
     const loadPassiveDisplay=async()=>{
       try{
         const dr=await fetch(
-          window.RAIL_dataURL('display_network.geojson')
+          './data/jp/display_network.geojson'
         );
 
         if(!dr.ok){
