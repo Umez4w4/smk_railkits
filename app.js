@@ -1,6 +1,41 @@
 (function(){
 'use strict';
-const FRONTEND_VERSION='2026-09-19-v42-compact-colored-progress',C=window.RailCore,$=id=>document.getElementById(id);
+const FRONTEND_VERSION='2026-09-19-v43-github-direct-country-data',C=window.RailCore,$=id=>document.getElementById(id);
+const RAIL_DEFAULT_COUNTRY='jp';
+
+function railCountryCode(){
+  try{
+    const q=new URLSearchParams(window.location.search).get('country');
+    if(q&&/^[a-z0-9_-]{2,12}$/i.test(q))return q.toLowerCase();
+  }catch(e){}
+  return String(window.RAIL_COUNTRY||RAIL_DEFAULT_COUNTRY).toLowerCase();
+}
+
+function railDataURL(name){
+  const country=railCountryCode();
+  const rel=`data/${country}/${name}`;
+  return new URL(rel,document.baseURI).href;
+}
+
+async function fetchRailJSON(name){
+  const url=railDataURL(name);
+  let response;
+  try{
+    response=await fetch(url,{cache:'no-store'});
+  }catch(e){
+    throw new Error(`${name}: network request failed (${url})`);
+  }
+
+  if(!response.ok){
+    throw new Error(`${name}: HTTP ${response.status} (${url})`);
+  }
+
+  try{
+    return await response.json();
+  }catch(e){
+    throw new Error(`${name}: invalid JSON (${url})`);
+  }
+}
 const els={search:$('search'),pref:$('pref'),railGroup:$('railGroup'),operator:$('operator'),kind:$('kind'),line:$('line'),lineCount:$('lineCount'),lineInfo:$('lineInfo'),manualComplete:$('manualComplete'),from:$('from'),to:$('to'),via:$('via'),preview:$('preview'),route:$('route'),routeInfo:$('routeInfo'),stops:$('stops'),stopNames:$('stopNames'),date:$('date'),note:$('note'),save:$('save'),mapSave:$('mapSave'),mapExport:$('mapExport'),mapSelectionInfo:$('mapSelectionInfo'),message:$('message'),fit:$('fit'),basemap:$('basemap'),statsView:$('statsView'),statsRows:$('statsRows'),overall:$('overall'),overallDistance:$('overallDistance'),history:$('history'),tripCount:$('tripCount'),selectAllRecords:$('selectAllRecords'),deleteSelected:$('deleteSelected'),undo:$('undo'),export:$('export'),import:$('import'),importFile:$('importFile'),dataInfo:$('dataInfo'),banner:$('banner'),exportUserName:document.getElementById('exportUserName'),exportProgressMode:document.getElementById('exportProgressMode')};
 let model=null,map=null,tile=null,displayGeo=null,displayLayer=null,geoLayer=null,lineHitLayer=null,stationLayer=null,layerByPiece=new Map(),storageKey='',trips=[],ridden=new Set(),previewRoute=null,stationPickPhase='from',hoverLineId='',hoverStationId='',hoverClearTimer=null,pieceLineMap=new Map(),mapClickIndex=[],mapHoverFrame=0,pendingHoverPoint=null,lineDeselected=false,selectedPieceIds=new Set(),manualCompleteLines=new Set(),manualCompleteStorageKey='';
 const BASE_W=1.55,RIDDEN_W=6.0,PREVIEW_W=8.5,PREVIEW_COLOR='#6b7280';
@@ -1282,23 +1317,22 @@ function bind(){
   els.statsView.addEventListener('change',renderStats);els.exportUserName?.addEventListener('change',saveExportProfile);els.exportUserName?.addEventListener('blur',saveExportProfile);els.exportProgressMode?.addEventListener('change',saveExportProfile);const exportLangObserver=new MutationObserver(()=>refreshExportProfileLanguage());exportLangObserver.observe(document.documentElement,{attributes:true,attributeFilter:['lang']});els.history.addEventListener('change',ev=>{const x=ev.target?.closest?.('.history-date-input');if(x)updateRecordDate(x.dataset.tripId,x.value)});els.selectAllRecords.addEventListener('click',toggleSelectAll);els.deleteSelected.addEventListener('click',batchDelete);els.undo.addEventListener('click',undo);els.export.addEventListener('click',exportBackup);els.import.addEventListener('click',()=>els.importFile.click());els.importFile.addEventListener('change',()=>{if(els.importFile.files[0])importBackup(els.importFile.files[0]);els.importFile.value=''})
 }
 async function load(){
-
   try{
-    // Only the model and processed geometry block application startup.
-    const[nr,gr]=await Promise.all([
-      fetch('./data/jp/network.json'),
-      fetch('./data/jp/geometry.geojson')
-    ]);
-
-    if(!nr.ok||!gr.ok){
-      throw new Error(
-        `network ${nr.status}; geometry ${gr.status}`
-      );
+    if(!C){
+      throw new Error('core.js was not loaded before app.js');
+    }
+    if(typeof L==='undefined'){
+      throw new Error('Leaflet was not loaded');
     }
 
-    const[networkData,geometryData]=await Promise.all([
-      nr.json(),
-      gr.json()
+    const country=railCountryCode();
+    window.RAIL_COUNTRY=country;
+    window.RAIL_DATA_BASE=`data/${country}`;
+
+    // Only the model and processed geometry block startup.
+    const [networkData,geometryData]=await Promise.all([
+      fetchRailJSON('network.json'),
+      fetchRailJSON('geometry.geojson')
     ]);
 
     model=C.normalize(networkData,geometryData);
@@ -1321,47 +1355,39 @@ async function load(){
     renderHistory();
     renderDataInfo();
 
-    // The usable application is ready now.
     els.banner.hidden=true;
 
-    // Load the passive complete-N02 display layer afterwards.
+    // Passive full-N02 display network loads later and never blocks the app.
     const loadPassiveDisplay=async()=>{
       try{
-        const dr=await fetch(
-          './data/jp/display_network.geojson'
-        );
-
-        if(!dr.ok){
-          throw new Error(`display ${dr.status}`);
-        }
-
-        displayGeo=await dr.json();
+        displayGeo=await fetchRailJSON('display_network.geojson');
         installDeferredDisplayLayer();
       }catch(displayError){
-        // Failure of the passive layer must not break the application.
         console.warn(
-          'Passive display_network.geojson was not loaded:',
+          'Optional display_network.geojson was not loaded:',
           displayError
         );
       }
     };
 
     if('requestIdleCallback' in window){
-      requestIdleCallback(
-        ()=>loadPassiveDisplay(),
-        {timeout:1200}
-      );
+      requestIdleCallback(()=>loadPassiveDisplay(),{timeout:1200});
     }else{
       setTimeout(loadPassiveDisplay,0);
     }
 
   }catch(e){
-    console.error(e);
-    els.banner.hidden=false;
-    els.banner.textContent=`データ読み込みエラー: ${e.message}`;
-    els.overall.textContent='—';
-    els.overallDistance.textContent=
-      '05C/06/07 の出力と公開データを確認してください。';
+    console.error('Rail Log startup failed:',e);
+
+    if(els.banner){
+      els.banner.hidden=false;
+      els.banner.textContent=`データ読み込みエラー: ${e.message}`;
+    }
+    if(els.overall)els.overall.textContent='—';
+    if(els.overallDistance){
+      els.overallDistance.textContent=
+        `公開データを確認してください: ${railDataURL('network.json')}`;
+    }
   }
 }
 window.addEventListener('DOMContentLoaded',load);

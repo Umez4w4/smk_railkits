@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const I18N_VERSION='2026-09-18-v20.1';
+const I18N_VERSION='2026-09-19-v43-github';
 const KEY='rail-log:ui-language:v1', JA='ja', ZH='zh-CN';
 const lang=(()=>{const s=localStorage.getItem(KEY);if(s===JA||s===ZH)return s;return (navigator.language||'').toLowerCase().startsWith('zh')?ZH:JA})();
 
