@@ -1,6 +1,6 @@
 (function(global){
 'use strict';
-// GitHub shared frontend build: 2026-09-19-v43
+// GitHub shared frontend build: 2026-09-20-v44
 const JR6=['北海道旅客鉄道','東日本旅客鉄道','東海旅客鉄道','西日本旅客鉄道','四国旅客鉄道','九州旅客鉄道'];
 const JR6_LABELS={'北海道旅客鉄道':'JR北海道','東日本旅客鉄道':'JR東日本','東海旅客鉄道':'JR東海','西日本旅客鉄道':'JR西日本','四国旅客鉄道':'JR四国','九州旅客鉄道':'JR九州'};
 const FALLBACK=['#446E9B','#9A5A46','#527D52','#7D5A9B','#A66E32','#3F7F7C','#8A5A6A','#6D6D9B','#5D7A3A','#8A6A3B'];

@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const FRONTEND_VERSION='2026-09-19-v43-github-direct-country-data',C=window.RailCore,$=id=>document.getElementById(id);
+const FRONTEND_VERSION='2026-09-20-v44-map-undo-redo-station-order',C=window.RailCore,$=id=>document.getElementById(id);
 const RAIL_DEFAULT_COUNTRY='jp';
 
 function railCountryCode(){
@@ -36,8 +36,8 @@ async function fetchRailJSON(name){
     throw new Error(`${name}: invalid JSON (${url})`);
   }
 }
-const els={search:$('search'),pref:$('pref'),railGroup:$('railGroup'),operator:$('operator'),kind:$('kind'),line:$('line'),lineCount:$('lineCount'),lineInfo:$('lineInfo'),manualComplete:$('manualComplete'),from:$('from'),to:$('to'),via:$('via'),preview:$('preview'),route:$('route'),routeInfo:$('routeInfo'),stops:$('stops'),stopNames:$('stopNames'),date:$('date'),note:$('note'),save:$('save'),mapSave:$('mapSave'),mapExport:$('mapExport'),mapSelectionInfo:$('mapSelectionInfo'),message:$('message'),fit:$('fit'),basemap:$('basemap'),statsView:$('statsView'),statsRows:$('statsRows'),overall:$('overall'),overallDistance:$('overallDistance'),history:$('history'),tripCount:$('tripCount'),selectAllRecords:$('selectAllRecords'),deleteSelected:$('deleteSelected'),undo:$('undo'),export:$('export'),import:$('import'),importFile:$('importFile'),dataInfo:$('dataInfo'),banner:$('banner'),exportUserName:document.getElementById('exportUserName'),exportProgressMode:document.getElementById('exportProgressMode')};
-let model=null,map=null,tile=null,displayGeo=null,displayLayer=null,geoLayer=null,lineHitLayer=null,stationLayer=null,layerByPiece=new Map(),storageKey='',trips=[],ridden=new Set(),previewRoute=null,stationPickPhase='from',hoverLineId='',hoverStationId='',hoverClearTimer=null,pieceLineMap=new Map(),mapClickIndex=[],mapHoverFrame=0,pendingHoverPoint=null,lineDeselected=false,selectedPieceIds=new Set(),manualCompleteLines=new Set(),manualCompleteStorageKey='';
+const els={search:$('search'),pref:$('pref'),railGroup:$('railGroup'),operator:$('operator'),kind:$('kind'),line:$('line'),lineCount:$('lineCount'),lineInfo:$('lineInfo'),manualComplete:$('manualComplete'),from:$('from'),to:$('to'),via:$('via'),preview:$('preview'),route:$('route'),routeInfo:$('routeInfo'),stops:$('stops'),stopNames:$('stopNames'),date:$('date'),note:$('note'),save:$('save'),mapSave:$('mapSave'),mapExport:$('mapExport'),mapSelectionInfo:$('mapSelectionInfo'),message:$('message'),fit:$('fit'),basemap:$('basemap'),statsView:$('statsView'),statsRows:$('statsRows'),overall:$('overall'),overallDistance:$('overallDistance'),history:$('history'),tripCount:$('tripCount'),selectAllRecords:$('selectAllRecords'),deleteSelected:$('deleteSelected'),undo:$('undo'),redo:$('redo'),mapUndo:$('mapUndo'),mapRedo:$('mapRedo'),export:$('export'),import:$('import'),importFile:$('importFile'),dataInfo:$('dataInfo'),banner:$('banner'),exportUserName:document.getElementById('exportUserName'),exportProgressMode:document.getElementById('exportProgressMode')};
+let model=null,map=null,tile=null,displayGeo=null,displayLayer=null,geoLayer=null,lineHitLayer=null,stationLayer=null,layerByPiece=new Map(),storageKey='',trips=[],ridden=new Set(),previewRoute=null,stationPickPhase='from',hoverLineId='',hoverStationId='',hoverClearTimer=null,pieceLineMap=new Map(),mapClickIndex=[],mapHoverFrame=0,pendingHoverPoint=null,lineDeselected=false,selectedPieceIds=new Set(),manualCompleteLines=new Set(),manualCompleteStorageKey='',redoStack=[];
 const BASE_W=1.55,RIDDEN_W=6.0,PREVIEW_W=8.5,PREVIEW_COLOR='#6b7280';
 const status=(text,kind='')=>{els.message.textContent=text||'';els.message.className=kind};
 const fmtKm=m=>`${C.km(m).toLocaleString('ja-JP',{minimumFractionDigits:C.km(m)<10?1:0,maximumFractionDigits:1})} km`;
@@ -244,7 +244,118 @@ function deselectLine(announce=true){
   if(announce)status('路線選択を解除しました。','ok');
 }
 function selectedLine(){return model.lineById.get(els.line.value)}
-function stationIdsForLine(l){if(!l)return[];if(l.station_ids.length)return l.station_ids;return C.uniq(l.section_ids.flatMap(id=>{const s=model.sectionById.get(id);return s?[s.from,s.to]:[]}))}
+function stationIdsForLine(l){
+  if(!l)return[];
+
+  const validStation=id=>{
+    id=String(id||'');
+    return id && !id.startsWith('rn_') && model.stationById.has(id);
+  };
+
+  const explicit=C.uniq(
+    (l.station_ids||[]).map(String).filter(validStation)
+  );
+
+  const sectionIds=(l.section_ids||[]).length
+    ? l.section_ids
+    : model.sections.filter(s=>s.line_id===l.id).map(s=>s.id);
+
+  const sections=sectionIds
+    .map(id=>model.sectionById.get(id))
+    .filter(s=>s&&s.from&&s.to);
+
+  if(!sections.length)return explicit;
+
+  const adj=new Map();
+  const add=(a,b)=>{
+    a=String(a||'');b=String(b||'');
+    if(!a||!b||a===b)return;
+    if(!adj.has(a))adj.set(a,new Set());
+    adj.get(a).add(b);
+  };
+
+  for(const s of sections){
+    add(s.from,s.to);
+    add(s.to,s.from);
+  }
+
+  if(!adj.size)return explicit;
+
+  const nodes=[...adj.keys()];
+  const endpoints=nodes.filter(id=>(adj.get(id)?.size||0)===1);
+  const branched=nodes.some(id=>(adj.get(id)?.size||0)>2);
+
+  // A branch cannot be represented by one unique dropdown order.
+  // Preserve the backend order instead of inventing a misleading sequence.
+  if(branched){
+    return explicit.length
+      ? explicit
+      : C.uniq(nodes.filter(validStation));
+  }
+
+  // Circular lines also have no unique first station. Preserve the
+  // exporter-provided order when it exists.
+  if(endpoints.length!==2){
+    return explicit.length
+      ? explicit
+      : C.uniq(nodes.filter(validStation));
+  }
+
+  // Linear line: reconstruct the physical sequence from section adjacency.
+  // Pick the endpoint nearest to the first exporter-provided station so the
+  // displayed direction stays as close as possible to the original data.
+  const preferred=explicit[0]||'';
+
+  const distance=(start,target)=>{
+    if(!target)return Infinity;
+    const q=[[start,0]],seen=new Set([start]);
+    for(let i=0;i<q.length;i++){
+      const [u,d]=q[i];
+      if(u===target)return d;
+      for(const v of adj.get(u)||[]){
+        if(seen.has(v))continue;
+        seen.add(v);
+        q.push([v,d+1]);
+      }
+    }
+    return Infinity;
+  };
+
+  let start=endpoints[0];
+  if(preferred){
+    const d0=distance(endpoints[0],preferred);
+    const d1=distance(endpoints[1],preferred);
+    if(d1<d0)start=endpoints[1];
+  }
+
+  const orderedNodes=[];
+  const visited=new Set();
+  let previous='';
+  let current=start;
+
+  while(current&&!visited.has(current)){
+    orderedNodes.push(current);
+    visited.add(current);
+
+    const next=[...(adj.get(current)||[])]
+      .find(id=>id!==previous&&!visited.has(id));
+
+    previous=current;
+    current=next||'';
+  }
+
+  const ordered=C.uniq(
+    orderedNodes.filter(validStation)
+  );
+
+  if(explicit.length){
+    const orderedSet=new Set(ordered);
+    if(explicit.every(id=>orderedSet.has(id)))return ordered;
+    return explicit;
+  }
+
+  return ordered;
+}
 function selectLine(){const l=selectedLine();if(l){lineDeselected=false;selectedPieceIds=new Set(l.piece_ids||[])}if(!l){if(els.mapSelectionInfo)els.mapSelectionInfo.textContent='路線をクリックして選択';clearStations();return}
   if(els.mapSelectionInfo)els.mapSelectionInfo.textContent=[l.operator,l.name].filter(Boolean).join(' · ');const group=l.group==='jr'?'JR線':'私鉄線';els.lineInfo.innerHTML=`<span class="op-dot" style="background:${C.esc(opColor(l.operator))}"></span>${C.esc(l.operator||'事業者不明')} · ${group}${l.length_m?` · ${C.esc(fmtKm(l.length_m))}`:''}`;const ids=stationIdsForLine(l),opts=ids.map(id=>{const s=model.stationById.get(id);return option(id,s?.name||id)}).join('');els.from.innerHTML=opts;els.to.innerHTML=opts;els.via.innerHTML=option('','指定なし')+opts;if(ids.length>1)els.to.selectedIndex=ids.length-1;stationPickPhase='from';previewRoute=null;els.route.innerHTML='';els.route.disabled=true;els.save.disabled=true;if(els.mapSave)els.mapSave.disabled=true;els.routeInfo.textContent=ids.length?'乗車駅・降車駅を選び「経路を表示」してください。':'この路線には入力可能な駅間接続がありません。';els.stopNames.textContent='';renderStationMarkers();refreshMapStyle();updateManualCompleteButton()}
 function resetPreview(){previewRoute=null;els.route.innerHTML='';els.route.disabled=true;els.save.disabled=true;if(els.mapSave)els.mapSave.disabled=true;els.stopNames.textContent='';refreshMapStyle()}
@@ -616,9 +727,7 @@ function loadExportProfile(){
   }
   if(els.exportProgressMode){
     const mode=String(saved.progressMode||'overall');
-    els.exportProgressMode.value=[
-      'overall','prefecture','operator','line'
-    ].includes(mode)?mode:'overall';
+    els.exportProgressMode.value=['overall','jr6','jr_private'].includes(mode)?mode:'overall';
   }
 
   refreshExportProfileLanguage();
@@ -1115,6 +1224,7 @@ function saveRide(){
           created_at:new Date().toISOString()
         };
 
+  clearRedoStack();
   trips.push(t);
   C.saveTrips(storageKey,trips);
 
@@ -1182,6 +1292,7 @@ function updateRecordDate(id,value){
 }
 
 function renderHistory(){
+  updateUndoRedoButtons();
   els.tripCount.textContent=`(${trips.length})`;
   els.selectAllRecords.disabled=!trips.length;
   els.deleteSelected.disabled=!trips.length;
@@ -1216,8 +1327,37 @@ function renderHistory(){
 }
 function selectedRecordIds(){return new Set([...document.querySelectorAll('.history-select:checked')].map(x=>x.value).filter(Boolean))}
 function toggleSelectAll(){const boxes=[...document.querySelectorAll('.history-select')];if(!boxes.length)return;const shouldCheck=boxes.some(b=>!b.checked);for(const b of boxes)b.checked=shouldCheck;els.selectAllRecords.textContent=shouldCheck?'全解除':'全選択'}
-function batchDelete(){const ids=selectedRecordIds();if(!ids.size){status('削除する記録にチェックを付けてください。','error');return}if(!window.confirm(`${ids.size} 件の乗車記録を削除しますか？`))return;trips=trips.filter(t=>!ids.has(t.id));C.saveTrips(storageKey,trips);status(`${ids.size} 件を削除しました。`,'ok');recompute()}
-function undo(){if(!trips.length)return;trips.pop();C.saveTrips(storageKey,trips);status('直前の記録を削除しました。','ok');recompute()}
+function batchDelete(){const ids=selectedRecordIds();if(!ids.size){status('削除する記録にチェックを付けてください。','error');return}if(!window.confirm(`${ids.size} 件の乗車記録を削除しますか？`))return;clearRedoStack();trips=trips.filter(t=>!ids.has(t.id));C.saveTrips(storageKey,trips);status(`${ids.size} 件を削除しました。`,'ok');recompute()}
+function updateUndoRedoButtons(){
+  const canUndo=trips.length>0;
+  const canRedo=redoStack.length>0;
+  if(els.undo)els.undo.disabled=!canUndo;
+  if(els.redo)els.redo.disabled=!canRedo;
+  if(els.mapUndo)els.mapUndo.disabled=!canUndo;
+  if(els.mapRedo)els.mapRedo.disabled=!canRedo;
+}
+function clearRedoStack(){
+  redoStack=[];
+  updateUndoRedoButtons();
+}
+function undo(){
+  if(!trips.length)return;
+  const removed=trips.pop();
+  if(removed)redoStack.push(removed);
+  C.saveTrips(storageKey,trips);
+  status('直前の記録を取り消しました。','ok');
+  recompute();
+  updateUndoRedoButtons();
+}
+function redo(){
+  if(!redoStack.length)return;
+  const restored=redoStack.pop();
+  if(restored)trips.push(restored);
+  C.saveTrips(storageKey,trips);
+  status('取り消した記録を復元しました。','ok');
+  recompute();
+  updateUndoRedoButtons();
+}
 function exportBackup(){
   const portable=trips.map(t=>({...t,dataset_id:model.dataset_id,piece_ids:C.tripPieceIds(t,model)})),
         manual=manualCompleteRecords(),
@@ -1264,6 +1404,7 @@ function importBackup(file){
         return;
       }
 
+      clearRedoStack();
       trips=restored;
       C.saveTrips(storageKey,trips);
 
@@ -1314,7 +1455,7 @@ function bind(){
   els.search.addEventListener('input',populateLines);els.pref.addEventListener('change',populateLines);els.railGroup.addEventListener('change',()=>{populateOperators();populateLines()});els.operator.addEventListener('change',populateLines);els.kind.addEventListener('change',populateLines);els.line.addEventListener('change',()=>{if(els.line.value){lineDeselected=false;selectLine()}else deselectLine(false)});
   els.from.addEventListener('change',()=>{stationPickPhase='to';renderStationMarkers();autoPreview(false)});els.to.addEventListener('change',()=>{stationPickPhase='from';renderStationMarkers();autoPreview(false)});els.via.addEventListener('change',()=>autoPreview(false));
   els.preview.addEventListener('click',doPreview);els.save.addEventListener('click',saveRide);if(els.manualComplete)els.manualComplete.addEventListener('click',toggleManualComplete);if(els.mapSave)els.mapSave.addEventListener('click',saveRide);if(els.mapExport)els.mapExport.addEventListener('click',exportMapPNG);els.fit.addEventListener('click',fitLine);els.basemap.addEventListener('change',()=>{if(els.basemap.checked){if(!map.hasLayer(tile))tile.addTo(map);applyGrayOSM()}else if(map.hasLayer(tile))map.removeLayer(tile)});
-  els.statsView.addEventListener('change',renderStats);els.exportUserName?.addEventListener('change',saveExportProfile);els.exportUserName?.addEventListener('blur',saveExportProfile);els.exportProgressMode?.addEventListener('change',saveExportProfile);const exportLangObserver=new MutationObserver(()=>refreshExportProfileLanguage());exportLangObserver.observe(document.documentElement,{attributes:true,attributeFilter:['lang']});els.history.addEventListener('change',ev=>{const x=ev.target?.closest?.('.history-date-input');if(x)updateRecordDate(x.dataset.tripId,x.value)});els.selectAllRecords.addEventListener('click',toggleSelectAll);els.deleteSelected.addEventListener('click',batchDelete);els.undo.addEventListener('click',undo);els.export.addEventListener('click',exportBackup);els.import.addEventListener('click',()=>els.importFile.click());els.importFile.addEventListener('change',()=>{if(els.importFile.files[0])importBackup(els.importFile.files[0]);els.importFile.value=''})
+  els.statsView.addEventListener('change',renderStats);els.exportUserName?.addEventListener('change',saveExportProfile);els.exportUserName?.addEventListener('blur',saveExportProfile);els.exportProgressMode?.addEventListener('change',saveExportProfile);const exportLangObserver=new MutationObserver(()=>refreshExportProfileLanguage());exportLangObserver.observe(document.documentElement,{attributes:true,attributeFilter:['lang']});els.history.addEventListener('change',ev=>{const x=ev.target?.closest?.('.history-date-input');if(x)updateRecordDate(x.dataset.tripId,x.value)});els.selectAllRecords.addEventListener('click',toggleSelectAll);els.deleteSelected.addEventListener('click',batchDelete);els.undo.addEventListener('click',undo);els.redo?.addEventListener('click',redo);els.mapUndo?.addEventListener('click',undo);els.mapRedo?.addEventListener('click',redo);els.export.addEventListener('click',exportBackup);els.import.addEventListener('click',()=>els.importFile.click());els.importFile.addEventListener('change',()=>{if(els.importFile.files[0])importBackup(els.importFile.files[0]);els.importFile.value=''})
 }
 async function load(){
   try{

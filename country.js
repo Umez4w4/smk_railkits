@@ -1,69 +1,61 @@
 (() => {
   "use strict";
 
-  const DEFAULT_COUNTRY = "jp";
+  const RAIL_COUNTRY_HELPER_VERSION = "2026-09-20-v44";
 
-  function requestedCountry() {
-    try {
-      const q = new URLSearchParams(window.location.search).get("country");
-      if (q && /^[a-z0-9_-]{2,12}$/i.test(q)) return q.toLowerCase();
-    } catch (_) {}
-    return DEFAULT_COUNTRY;
+  let bootstrapPromise = null;
+
+  function requestedCode() {
+    const params = new URLSearchParams(window.location.search);
+    return (
+      params.get("country") ||
+      localStorage.getItem("rail_country") ||
+      ""
+    ).trim().toLowerCase();
   }
 
-  function setCountryGlobals(code) {
-    const country = String(code || DEFAULT_COUNTRY).toLowerCase();
-    window.RAIL_COUNTRY = country;
-    window.RAIL_DATA_BASE = `data/${country}`;
-    window.RAIL_dataURL = function(name) {
-      return new URL(
-        `data/${country}/${name}`,
-        document.baseURI
-      ).href;
-    };
-    return country;
+  function rootTargetURL(country) {
+    const path = country.app_path || "index.html";
+    const url = new URL(path, document.baseURI);
+    url.searchParams.set("country", country.code);
+    return url;
   }
 
-  // Synchronous and cannot block app.js.
-  const initialCountry = setCountryGlobals(requestedCountry());
-
-  // Compatibility with earlier app.js builds.
-  window.RAIL_bootstrapCountry = async function() {
-    return {
-      code: window.RAIL_COUNTRY || initialCountry,
-      data_path: window.RAIL_DATA_BASE || `data/${initialCountry}`
-    };
-  };
-
-  function buildSelector(countries) {
+  function buildSelector(released, current) {
     const host = document.getElementById("countrySwitchHost");
     if (!host) return;
-
-    const released = (countries || []).filter(
-      c => c && c.released === true && c.code
-    );
 
     if (released.length <= 1) {
       host.hidden = true;
       return;
     }
 
-    const current = window.RAIL_COUNTRY || DEFAULT_COUNTRY;
     const select = document.createElement("select");
     select.id = "countrySwitch";
     select.setAttribute("aria-label", "Country / 国");
 
-    for (const c of released) {
+    for (const country of released) {
       const option = document.createElement("option");
-      option.value = String(c.code).toLowerCase();
-      option.textContent = c.label || c.name_en || c.code;
-      option.selected = option.value === current;
+      option.value = country.code;
+      option.textContent =
+        country.label || country.name_en || country.code;
+      option.selected = country.code === current.code;
       select.appendChild(option);
     }
 
     select.addEventListener("change", () => {
+      const next = released.find(c => c.code === select.value);
+      if (!next) return;
+
+      localStorage.setItem("rail_country", next.code);
+
+      if ((next.app_path || "index.html") !== "index.html") {
+        window.location.href = rootTargetURL(next).toString();
+        return;
+      }
+
       const url = new URL(window.location.href);
-      url.searchParams.set("country", select.value);
+      url.searchParams.set("country", next.code);
       window.location.href = url.toString();
     });
 
@@ -71,27 +63,80 @@
     host.hidden = false;
   }
 
-  // Optional registry lookup. Failure is harmless.
-  async function loadRegistryForSelector() {
-    try {
-      const url = new URL("config/countries.json", document.baseURI);
-      const r = await fetch(url, {cache: "no-store"});
-      if (!r.ok) return;
-      const registry = await r.json();
-      window.RAIL_COUNTRIES = registry.countries || [];
-      buildSelector(window.RAIL_COUNTRIES);
-    } catch (e) {
-      console.warn("Country registry unavailable; using Japan directly.", e);
-    }
+  async function bootstrapCountry() {
+    if (bootstrapPromise) return bootstrapPromise;
+
+    bootstrapPromise = (async () => {
+      const response = await fetch(
+        "config/countries.json",
+        {cache: "no-store"}
+      );
+
+      if (!response.ok) {
+        throw new Error(`countries.json ${response.status}`);
+      }
+
+      const registry = await response.json();
+
+      const released = (registry.countries || []).filter(
+        c => c && c.released === true
+      );
+
+      if (!released.length) {
+        throw new Error("No released countries in countries.json");
+      }
+
+      const requested = requestedCode();
+
+      let current = released.find(
+        c => String(c.code).toLowerCase() === requested
+      );
+
+      if (!current) {
+        current = released.find(
+          c => c.code === registry.default_country
+        ) || released[0];
+      }
+
+      localStorage.setItem("rail_country", current.code);
+
+      // Root index.html is the shared-schema application.
+      // Standalone country applications have their own entry point.
+      if ((current.app_path || "index.html") !== "index.html") {
+        const target = rootTargetURL(current);
+
+        if (target.href !== window.location.href) {
+          window.location.replace(target.toString());
+
+          // Keep the awaiting Japan load() suspended until navigation occurs.
+          return await new Promise(() => {});
+        }
+      }
+
+      window.RAIL_COUNTRY = current.code;
+      window.RAIL_DATA_BASE =
+        current.data_path || `data/${current.code}`;
+      window.RAIL_COUNTRY_INFO = current;
+      window.RAIL_COUNTRIES = released;
+      window.RAIL_DATA_VERSION =
+        current.data_version || current.asset_version || "1";
+
+      window.RAIL_dataURL = function(name) {
+        const base = String(window.RAIL_DATA_BASE || "")
+          .replace(/\/$/, "");
+        const version = encodeURIComponent(
+          window.RAIL_DATA_VERSION
+        );
+        return `${base}/${name}?v=${version}`;
+      };
+
+      buildSelector(released, current);
+
+      return current;
+    })();
+
+    return bootstrapPromise;
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener(
-      "DOMContentLoaded",
-      loadRegistryForSelector,
-      {once: true}
-    );
-  } else {
-    loadRegistryForSelector();
-  }
+  window.RAIL_bootstrapCountry = bootstrapCountry;
 })();

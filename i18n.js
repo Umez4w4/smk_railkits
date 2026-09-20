@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const I18N_VERSION='2026-09-19-v43-github';
+const I18N_VERSION='2026-09-20-v44-map-undo-redo';
 const KEY='rail-log:ui-language:v1', JA='ja', ZH='zh-CN';
 const lang=(()=>{const s=localStorage.getItem(KEY);if(s===JA||s===ZH)return s;return (navigator.language||'').toLowerCase().startsWith('zh')?ZH:JA})();
 
@@ -12,7 +12,7 @@ const E={
 '駅を選ぶと、地図で経路を確認できます。':'选择车站后，可在地图上确认路径。','路線をクリックして選択':'点击线路进行选择',
 '集計対象なし':'无统计对象','データなし':'无数据','まだ乗車記録がありません。':'暂无乘车记录。','路線を選択してください。':'请选择线路。',
 'この路線には入力可能な駅間接続がありません。':'该线路没有可输入的站间连接。','保存しました。次の区間を選択できます。':'已保存。可以继续选择下一个区间。',
-'読み込みをキャンセルしました。':'已取消导入。','直前の記録を削除しました。':'已删除上一条记录。','地図PNGを書き出しました。':'已导出地图PNG。',
+'読み込みをキャンセルしました。':'已取消导入。','直前の記録を削除しました。':'已删除上一条记录。','直前の記録を取り消しました。':'已撤销上一条记录。','取り消した記録を復元しました。':'已恢复撤销的记录。','直前の記録を取り消す':'撤销上一条记录','元に戻す':'撤销','やり直す':'重做','やり直す ↷':'重做 ↷','地図PNGを書き出しました。':'已导出地图PNG。',
 '地図PNGを書き出しました（ブラウザーの制限によりOSM背景は省略）。':'已导出地图PNG（由于浏览器限制，未包含OSM底图）。'
 };
 
@@ -71,7 +71,7 @@ function staticZh(){
   const n=document.getElementById('note');if(n)n.placeholder='旅行名、列车名等';
 
   [['manualComplete','将此线路设为100%'],['preview','显示路径'],['save','记录为已乘坐'],['mapSave','记录此区间'],['mapExport','导出地图'],
-   ['fit','定位到所选线路'],['selectAllRecords','全选'],['deleteSelected','删除选中记录'],['undo','删除上一条记录'],['export','备份'],['import','导入']]
+   ['fit','定位到所选线路'],['selectAllRecords','全选'],['deleteSelected','删除选中记录'],['undo','撤销上一条记录'],['redo','重做'],['mapUndo','↶ 撤销'],['mapRedo','重做 ↷'],['export','备份'],['import','导入']]
    .forEach(([id,t])=>setText(id,t));
 
   const map=document.getElementById('map');if(map)map.setAttribute('aria-label','铁路地图');
