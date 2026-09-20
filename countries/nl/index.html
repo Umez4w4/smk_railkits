@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nederland Spoor Compleet</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<link rel="stylesheet" href="styles.css?v=3cf94f13cec6">
+<link rel="stylesheet" href="toolkit-country.css?v=3cf94f13cec6">
+</head>
+<body>
+<div id="app">
+<aside id="sidebar">
+<header class="topline">
+  <div><h1 data-t="title">Nederland Spoor Compleet</h1><div class="sub" data-t="subtitle">Persoonlijke spoorbereisingskaart</div></div>
+  <div class="langs"><button class="lang active" data-lang="nl">NL</button><button class="lang" data-lang="ja">日本語</button><button class="lang" data-lang="zh">中文</button></div>
+</header>
+
+<section class="progress-card">
+  <div class="progress-head"><div><div id="scope-title" class="scope-title">Nederland</div><div id="scope-pct" class="scope-pct">0.0%</div></div><div id="scope-distance" class="scope-distance">0 / 0 km</div></div>
+  <div class="bar big"><div id="scope-bar"></div></div>
+</section>
+
+<section>
+<div class="section-title" data-t="journey">Reis invoeren</div>
+<div class="station-grid">
+  <div><label data-t="from">Van</label><input id="from-input" list="stations-list" placeholder="Station"></div>
+  <div><label data-t="to">Naar</label><input id="to-input" list="stations-list" placeholder="Station"></div>
+</div>
+<datalist id="stations-list"></datalist>
+
+<div class="constraint-toolbar">
+  <input id="via-input" list="stations-list" data-t-placeholder="viaPlaceholder" placeholder="Via station...">
+  <button id="add-via" data-t="addVia">Via toevoegen</button>
+  <button id="add-map-waypoint" data-t="addMapWaypoint">Punt op kaart</button>
+</div>
+<div id="map-waypoint-help" class="tip"></div>
+<div id="constraints" class="constraints"></div>
+
+<div class="journey-buttons">
+  <button id="preview-route" class="primary" data-t="preview">Route tonen</button>
+  <button id="save-route" disabled data-t="saveJourney">Reis opslaan</button>
+  <button id="clear-route" data-t="clearSelection">Selectie wissen</button>
+</div>
+<div id="route-message" class="message"></div>
+<div class="tip" data-t="stationClickTip">Klik op twee stations op de kaart om vertrek en bestemming te kiezen.</div>
+</section>
+
+<section>
+<div class="section-title" data-t="visualizeProgress">Voortgang visualiseren</div>
+<label data-t="progressType">Type</label>
+<select id="scope-type">
+  <option value="national" data-t-option="national">Nederland</option>
+  <option value="province" data-t-option="province">Provincie</option>
+  <option value="operator" data-t-option="operator">Vervoerder</option>
+  <option value="mode" data-t-option="mode">Vervoerswijze</option>
+</select>
+<label data-t="selection">Selectie</label>
+<select id="scope-item"></select>
+</section>
+
+<section>
+<div class="tabs"><button class="tab active" data-tab="province" data-t="provinces">Provincies</button><button class="tab" data-tab="operator" data-t="operators">Vervoerders</button><button class="tab" data-tab="mode" data-t="modes">Modi</button></div>
+<div id="stats"></div>
+</section>
+
+<section>
+<div class="section-title" data-t="export">Exporteren</div>
+<button id="export-map" class="primary wide" data-t="exportMap">Kaart als PNG exporteren</button>
+<div class="tip" data-t="exportMapNote">De PNG bevat de geselecteerde voortgang en voortgangsbalk.</div>
+<div class="two-col"><button id="export-progress" data-t="exportProgress">Voortgang JSON</button><label class="file-btn"><span data-t="importProgress">JSON importeren</span><input id="import-progress" type="file" accept=".json"></label></div>
+</section>
+
+<section><div class="section-title" data-t="legend">Legenda</div><div id="legend"></div></section>
+<section><button id="reset-progress" class="danger wide" data-t="reset">Alle voortgang wissen</button></section>
+</aside>
+<main id="map"></main>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="data_chunks/data_000.js?v=3cf94f13cec6"></script>
+<script src="data_chunks/data_001.js?v=3cf94f13cec6"></script>
+<script src="data_chunks/data_002.js?v=3cf94f13cec6"></script>
+<script src="toolkit-country.js?v=3cf94f13cec6"></script>
+<script src="data_loader.js?v=3cf94f13cec6"></script>
+</body>
+</html>

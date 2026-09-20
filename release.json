@@ -1,0 +1,10 @@
+{
+  "release_schema": 2,
+  "frontend": "multi-country",
+  "default_country": "jp",
+  "released_countries": [
+    "jp",
+    "nl"
+  ],
+  "updated_utc": "2026-09-20T10:02:05.726340+00:00"
+}

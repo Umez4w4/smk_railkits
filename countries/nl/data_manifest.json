@@ -1,0 +1,27 @@
+{
+  "schema": "nl_domestic_script_chunks_v2",
+  "encoding": "utf-8",
+  "transport": "script_base64",
+  "total_raw_bytes": 28351809,
+  "raw_chunk_bytes_max": 10485760,
+  "chunks": [
+    {
+      "index": 0,
+      "file": "data_chunks/data_000.js",
+      "raw_bytes": 10485760,
+      "file_bytes": 13981091
+    },
+    {
+      "index": 1,
+      "file": "data_chunks/data_001.js",
+      "raw_bytes": 10485760,
+      "file_bytes": 13981091
+    },
+    {
+      "index": 2,
+      "file": "data_chunks/data_002.js",
+      "raw_bytes": 7380289,
+      "file_bytes": 9840463
+    }
+  ]
+}

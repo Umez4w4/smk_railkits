@@ -1,0 +1,11 @@
+{
+  "frontend": "Netherlands domestic-only operator-aware frontend",
+  "source_package": "E:\\rail_toolkit\\netherlands\\domestic_v4\\netherlands_domestic_service_package.json",
+  "domestic_only": true,
+  "operator_filters_stations": true,
+  "lines_clickable": false,
+  "stations_clickable": true,
+  "via_stations": true,
+  "draggable_forced_edge_waypoints": true,
+  "entry_point": "E:\\rail_toolkit\\netherlands\\frontend_domestic\\index.html"
+}

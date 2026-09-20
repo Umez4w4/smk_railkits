@@ -1,8 +1,6 @@
 (() => {
   "use strict";
 
-  const RAIL_COUNTRY_HELPER_VERSION = "2026-09-20-v44";
-
   let bootstrapPromise = null;
 
   function requestedCode() {
