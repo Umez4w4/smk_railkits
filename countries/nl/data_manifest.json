@@ -2,7 +2,7 @@
   "schema": "nl_domestic_script_chunks_v2",
   "encoding": "utf-8",
   "transport": "script_base64",
-  "total_raw_bytes": 28351809,
+  "total_raw_bytes": 28152415,
   "raw_chunk_bytes_max": 10485760,
   "chunks": [
     {
@@ -20,8 +20,8 @@
     {
       "index": 2,
       "file": "data_chunks/data_002.js",
-      "raw_bytes": 7380289,
-      "file_bytes": 9840463
+      "raw_bytes": 7180895,
+      "file_bytes": 9574603
     }
   ]
 }

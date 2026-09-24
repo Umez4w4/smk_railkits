@@ -34,7 +34,7 @@ L.geoJSON(D.display_shapes,{renderer,interactive:false,style:{color:"#bdbdb8",we
 
 function provinceLength(f,p){try{const raw=f.properties.province_lengths_m,o=typeof raw==="string"?JSON.parse(raw):raw||{};return Number(o[p]||0)}catch{return 0}}
 function scopeWeight(f){const type=document.getElementById("scope-type").value,item=document.getElementById("scope-item").value,L=Number(f.properties.length_m||0);if(type==="national")return L;if(type==="province")return provinceLength(f,item);if(type==="operator")return splitPipe(f.properties.operators).includes(item)?L:0;if(type==="mode")return splitPipe(f.properties.modes).includes(item)?L:0;return L}
-const physicalLayers=new Map();function physicalStyle(f){const ridden=state.ridden.has(String(f.properties.physical_id)),active=scopeWeight(f)>0;if(ridden)return{color:opColor[primaryOperator(f)]||"#20201f",weight:active?5.8:3.6,opacity:active?.98:.28,lineCap:"round",lineJoin:"round"};return{color:active?"#888884":"#c7c7c2",weight:active?2.25:1,opacity:active?.72:.22,lineCap:"round",lineJoin:"round"}}
+const physicalLayers=new Map();function physicalStyle(f){const ridden=state.ridden.has(String(f.properties.physical_id)),active=scopeWeight(f)>0;if(ridden)return{color:opColor[primaryOperator(f)]||"#20201f",weight:active?5.8:3.6,opacity:active?.98:.28,lineCap:"butt",lineJoin:"round"};return{color:active?"#888884":"#c7c7c2",weight:active?2.25:1,opacity:active?.72:.22,lineCap:"butt",lineJoin:"round"}}
 L.geoJSON(D.physical_edges,{renderer,interactive:false,style:physicalStyle,onEachFeature:(f,l)=>physicalLayers.set(String(f.properties.physical_id),l)}).addTo(map);
 const previewLayer=L.geoJSON({type:"FeatureCollection",features:[]},{renderer,interactive:false,style:{color:"#171716",weight:7,opacity:.9,dashArray:"10 7",lineCap:"round"}}).addTo(map);
 
@@ -100,7 +100,7 @@ PROVINCES.features.forEach(f=>visitGeom(f.geometry,(cs,closed)=>{if(!cs.length)r
 ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle="#c2c2bd";ctx.lineWidth=1;
 DISPLAY.forEach(f=>visitGeom(f.geometry,cs=>{if(cs.length<2)return;ctx.beginPath();cs.forEach(([lon,lat],i)=>{const[x,y]=P(lon,lat);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke()}));
 
-ctx.strokeStyle="#7f7f7a";ctx.lineWidth=2.1;
+ctx.lineCap="butt";ctx.lineJoin="round";ctx.strokeStyle="#7f7f7a";ctx.lineWidth=2.1;
 scoped.forEach(f=>{if(state.ridden.has(String(f.properties.physical_id)))return;visitGeom(f.geometry,cs=>{ctx.beginPath();cs.forEach(([lon,lat],i)=>{const[x,y]=P(lon,lat);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke()})});
 
 scoped.forEach(f=>{if(!state.ridden.has(String(f.properties.physical_id)))return;ctx.strokeStyle=opColor[primaryOperator(f)]||"#20201f";ctx.lineWidth=5.2;visitGeom(f.geometry,cs=>{ctx.beginPath();cs.forEach(([lon,lat],i)=>{const[x,y]=P(lon,lat);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke()})});
