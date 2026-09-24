@@ -19,9 +19,38 @@
     return url;
   }
 
+  function ensureSelectorHost() {
+    let host = document.getElementById("countrySwitchHost");
+
+    if (host) return host;
+
+    host = document.createElement("div");
+    host.id = "countrySwitchHost";
+    host.className = "country-switch-host";
+
+    const header = document.querySelector("header");
+
+    if (header) {
+      header.appendChild(host);
+    } else {
+      // Fallback for a root HTML layout that no longer contains
+      // the original header used by notebook 07.
+      host.style.position = "fixed";
+      host.style.right = "12px";
+      host.style.top = "12px";
+      host.style.zIndex = "5000";
+      host.style.padding = "7px 9px";
+      host.style.borderRadius = "9px";
+      host.style.background = "rgba(255,255,255,.95)";
+      host.style.boxShadow = "0 2px 12px rgba(0,0,0,.15)";
+      document.body.appendChild(host);
+    }
+
+    return host;
+  }
+
   function buildSelector(released, current) {
-    const host = document.getElementById("countrySwitchHost");
-    if (!host) return;
+    const host = ensureSelectorHost();
 
     if (released.length <= 1) {
       host.hidden = true;
