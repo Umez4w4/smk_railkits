@@ -3,16 +3,131 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="駅間ごとに記録する、日本の鉄道乗りつぶしローカルマップ。">
-  <meta name="rail-frontend-version" content="2026-09-19-v42-compact-colored-progress">
+  <meta name="rail-frontend-version" content="2026-09-20-v45-visible-country-switch">
   <title>Sing Man Goon Railway Toolkit</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b2440'/%3E%3Cpath d='M10 4v24M22 4v24M10 9h12M10 16h12M10 23h12' stroke='%2329d6bf' stroke-width='3'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="vendor/leaflet.css"><link rel="stylesheet" href="style.css?v=11a53155c295">
-  <script defer src="vendor/leaflet.js"></script><script defer src="core.js?v=99004d790d3c"></script><script src="country.js?v=a10a943b66a7"></script>
-  <script defer src="app.js?v=ec06b11385c9"></script><script defer src="i18n.js?v=cf31dbee09fd"></script>
+  <link rel="stylesheet" href="vendor/leaflet.css?v=a78371028241"><link rel="stylesheet" href="style.css?v=11a53155c295">
+  <script defer src="vendor/leaflet.js?v=db49d009c841"></script><script defer src="core.js?v=9a945793e93f"></script><script defer src="country.js?v=a10a943b66a7"></script><script defer src="app.js?v=fc552ada6a4b"></script><script defer src="i18n.js?v=7896d6c07b94"></script>
+
+  <style id="rail-v44-map-control-layout">
+    .map-profile-controls{
+      position:absolute;
+      top:12px;
+      right:12px;
+      z-index:720;
+      display:flex;
+      gap:8px;
+      align-items:flex-end;
+      flex-wrap:wrap;
+      max-width:min(560px,calc(100% - 100px));
+      pointer-events:auto;
+    }
+    .map-profile-controls .export-profile-userbox,
+    .map-profile-controls .export-profile-progressbox{
+      position:static !important;
+      inset:auto !important;
+      margin:0 !important;
+    }
+
+    /* Keep map action buttons separate from the export-profile block. */
+    .map-wrap > .map-controls{
+      top:88px !important;
+      right:12px !important;
+      left:auto !important;
+      bottom:auto !important;
+    }
+
+    /* Floating undo / redo block on the map. */
+    .map-history-controls{
+      position:absolute;
+      top:88px;
+      left:12px;
+      z-index:720;
+      display:flex;
+      gap:6px;
+      padding:5px;
+      border-radius:9px;
+      background:rgba(255,255,255,.92);
+      box-shadow:0 1px 5px rgba(0,0,0,.18);
+      backdrop-filter:blur(3px);
+    }
+    .map-history-controls button{
+      min-width:86px;
+      min-height:30px;
+      padding:5px 9px;
+      white-space:nowrap;
+    }
+    .map-history-controls button:disabled{
+      opacity:.42;
+      cursor:default;
+    }
+
+    @media(max-width:760px){
+      .map-profile-controls{
+        left:58px;
+        right:8px;
+        top:8px;
+        max-width:none;
+        justify-content:flex-end;
+      }
+      .map-wrap > .map-controls{
+        top:104px !important;
+        right:8px !important;
+      }
+      .map-history-controls{
+        top:104px;
+        left:8px;
+      }
+      .map-history-controls button{
+        min-width:0;
+        padding:5px 7px;
+      }
+    }
+  </style>
+
+  <style id="rail-v45-country-switch-style">
+    header .country-switch-host{
+      display:flex;
+      align-items:center;
+      flex:0 0 auto;
+      margin-left:8px;
+    }
+    header .country-switch-host select{
+      height:34px;
+      min-width:118px;
+      max-width:190px;
+      padding:4px 28px 4px 12px;
+      border:1px solid rgba(255,255,255,.38);
+      border-radius:18px;
+      background:#0b2947;
+      color:#fff;
+      font:inherit;
+      font-size:12px;
+      font-weight:600;
+      letter-spacing:.01em;
+      cursor:pointer;
+    }
+    header .country-switch-host select:focus{
+      outline:2px solid rgba(255,255,255,.55);
+      outline-offset:2px;
+    }
+    @media(max-width:760px){
+      header .country-switch-host{
+        margin-left:4px;
+      }
+      header .country-switch-host select{
+        min-width:92px;
+        max-width:118px;
+        height:32px;
+        padding-left:9px;
+        font-size:11px;
+      }
+    }
+  </style>
   <link rel="stylesheet" href="country.css?v=25502995240c">
 </head>
 <body>
-<header><div class="brand"><span class="mark" aria-hidden="true">▥</span><div><strong>Rail Log</strong><span>乗りつぶしマップ</span></div></div><div class="headline"><strong id="overall">—</strong><span id="overallDistance">データを読み込み中</span></div><div class="lang-switch" id="languageSwitch" aria-label="Language / 言語"><button type="button" data-lang="ja">日本語</button><button type="button" data-lang="zh-CN">中文</button></div><span class="local">LOCAL</span><div id="countrySwitchHost" class="country-switch-host" hidden></div></header>
+<header><div class="brand"><span class="mark" aria-hidden="true">▥</span><div><strong>Rail Log</strong><span>乗りつぶしマップ</span></div></div><div class="headline"><strong id="overall">—</strong><span id="overallDistance">データを読み込み中</span></div><div id="countrySwitchHost" class="country-switch-host" aria-label="Country / 国"></div><div class="lang-switch" id="languageSwitch" aria-label="Language / 言語"><button type="button" data-lang="ja">日本語</button><button type="button" data-lang="zh-CN">中文</button></div><span class="local">LOCAL</span></header>
 <main>
   <aside aria-label="乗車記録">
     <section><div class="section-title"><span>01</span><h1>路線を選ぶ</h1></div>
@@ -39,27 +154,30 @@
     <div class="map-wrap"><div id="map" aria-label="鉄道地図"></div>
       <div id="mapSelectionInfo" class="map-selection-info">路線をクリックして選択</div>
       
-<div class="export-profile-userbox" id="exportUserBox">
-  <label for="exportUserName" id="exportUserNameLabel">ユーザー名</label>
-  <input
-    id="exportUserName"
-    type="text"
-    maxlength="40"
-    value="username"
-    placeholder="username"
-    autocomplete="off"
-  >
+<div class="map-profile-controls" id="mapProfileControls">
+  <div class="export-profile-userbox" id="exportUserBox">
+    <label for="exportUserName" id="exportUserNameLabel">ユーザー名</label>
+    <input
+      id="exportUserName"
+      type="text"
+      maxlength="40"
+      value="username"
+      placeholder="username"
+      autocomplete="off"
+    >
+  </div>
+
+  <div class="export-profile-progressbox" id="exportProgressBox">
+    <label for="exportProgressMode" id="exportProgressLabel">PNGに表示する進捗</label>
+    <select id="exportProgressMode">
+      <option value="overall">総合達成率</option>
+      <option value="jr6">JR線：旅客6社別</option>
+      <option value="jr_private">JR線 / 私鉄線</option>
+    </select>
+  </div>
 </div>
 
-<div class="export-profile-progressbox" id="exportProgressBox">
-  <label for="exportProgressMode" id="exportProgressLabel">PNGに表示する進捗</label>
-  <select id="exportProgressMode">
-    <option value="overall">総合達成率</option>
-    <option value="jr6">JR線：旅客6社別</option>
-    <option value="jr_private">JR線 / 私鉄線</option>
-  </select>
-</div>
-
+<div class="map-history-controls" id="mapHistoryControls" aria-label="Undo / Redo"><button id="mapUndo" type="button" disabled>↶ 元に戻す</button><button id="mapRedo" type="button" disabled>やり直す ↷</button></div>
 <div class="map-controls"><button id="mapSave" class="map-save" disabled>この区間を記録</button><button id="mapExport">地図を書き出す</button><button id="fit">選択路線へ</button><label><input type="checkbox" id="basemap" checked> OSM背景</label></div>
       <div class="legend"><span><i class="unridden"></i>未乗車</span><span><i class="ridden"></i>乗車済み</span><span><i class="preview"></i>確認中</span><span><i class="station"></i>駅</span><span><i class="station selected"></i>乗車駅</span><span><i class="station destination"></i>降車駅</span><small>色 = 鉄道会社 / 太さ = 状態</small></div>
     </div>
@@ -68,7 +186,7 @@
       <p class="muted">区分は乗りつぶしオンラインを参考に、JR旅客6社をJR線、それ以外の旅客鉄道・軌道事業者を私鉄線として扱います。別線・短絡線は現在の出力データに独立区分がないため別集計していません。</p>
       <div class="table-scroll"><table class="stats-table"><colgroup><col class="col-name"><col class="col-distance"><col class="col-rate"></colgroup><thead><tr><th scope="col">名称</th><th scope="col">乗車 / 全体 km</th><th scope="col">達成率</th></tr></thead><tbody id="statsRows"></tbody></table></div>
     </section>
-    <section class="history"><div class="stats-heading"><h2>乗車履歴 <span id="tripCount"></span></h2><div class="actions"><button id="selectAllRecords">全選択</button><button id="deleteSelected" class="danger">選択した記録を削除</button><button id="undo">直前の記録を削除</button><button id="export">バックアップ</button><button id="import">読み込み</button><input hidden id="importFile" type="file" accept=".json,application/json"></div></div><div id="history"></div><p class="muted">チェックを付けた記録はまとめて削除できます。バックアップは現在の乗車履歴一式を保存し、「読み込み」でその履歴を復元します。</p></section>
+    <section class="history"><div class="stats-heading"><h2>乗車履歴 <span id="tripCount"></span></h2><div class="actions"><button id="selectAllRecords">全選択</button><button id="deleteSelected" class="danger">選択した記録を削除</button><button id="undo">直前の記録を取り消す</button><button id="redo" disabled>やり直す</button><button id="export">バックアップ</button><button id="import">読み込み</button><input hidden id="importFile" type="file" accept=".json,application/json"></div></div><div id="history"></div><p class="muted">チェックを付けた記録はまとめて削除できます。バックアップは現在の乗車履歴一式を保存し、「読み込み」でその履歴を復元します。</p></section>
     <details class="data-info"><summary>データ範囲・精度・出典</summary><div id="dataInfo"></div><p><a href="https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N02-2025.html" target="_blank" rel="noopener">国土数値情報（鉄道）</a>・<a href="https://nlftp.mlit.go.jp/ksj/" target="_blank" rel="noopener">国土数値情報（行政区域）</a>を加工。<a href="https://ekidata.jp/" target="_blank" rel="noopener">駅データ.jp</a>で駅・接続関係を補助照合。</p><p>背景地図 © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>。路線名・会社別で管理するため、別の正式路線が同じ線路を使う場合は別計上となることがあります。営業キロではありません。</p></details>
   </div>
 </main>
