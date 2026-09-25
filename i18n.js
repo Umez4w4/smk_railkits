@@ -58,7 +58,7 @@ function special(el){
 function staticZh(){
   document.documentElement.lang='zh-CN'; document.title='Rail Log · 一站一站过过停停，人生的天外天';
   const meta=document.querySelector('meta[name="description"]');if(meta)meta.content='按站间区间记录日本铁路乘车进度的互动地图。';
-  const sub=document.querySelector('.brand div span');if(sub)sub.textContent='日本铁路乘车地图';
+  const sub=document.querySelector('.brand div span');if(sub)sub.textContent='一站一站过过停停，人生的天外天';
   const aside=document.querySelector('aside');if(aside)aside.setAttribute('aria-label','乘车记录');
   const tt=document.querySelectorAll('.section-title h1,.section-title h2');if(tt[0])tt[0].textContent='选择线路';if(tt[1])tt[1].textContent='已乘坐区间';
 
